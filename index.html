@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프롬프트 점수 측정기 — 크래프톤 AI 캐릭터 공모전</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0a0f;min-height:100vh;display:flex;flex-direction:column;align-items:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:2rem 1.25rem;}
+.sys-tag{font-size:10px;font-weight:500;letter-spacing:0.14em;color:#1D9E75;border:1px solid rgba(29,158,117,0.4);border-radius:4px;padding:3px 12px;display:inline-block;margin-bottom:10px;}
+.main-title{font-size:22px;font-weight:500;color:#fff;margin-bottom:4px;text-align:center;}
+.main-sub{font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:2rem;text-align:center;line-height:1.6;}
+.input-card{width:100%;max-width:560px;background:#13131f;border:1px solid #2a2a4a;border-radius:16px;padding:1.75rem;margin-bottom:1rem;}
+.q-label{font-size:10px;font-weight:500;color:#1D9E75;letter-spacing:0.12em;margin-bottom:10px;}
+.q-text{font-size:16px;font-weight:500;color:#fff;margin-bottom:6px;}
+.q-sub{font-size:12px;color:rgba(255,255,255,0.3);margin-bottom:16px;line-height:1.6;}
+.examples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.ex-chip{background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.25);border-radius:20px;padding:5px 12px;font-size:11px;color:#9FE1CB;cursor:pointer;transition:background 0.2s;}
+.ex-chip:hover{background:rgba(29,158,117,0.22);}
+.textarea-wrap{position:relative;margin-bottom:16px;}
+textarea{width:100%;background:#0d0d1a;border:1px solid #2a2a4a;border-radius:10px;padding:14px 16px;color:#fff;font-size:13px;line-height:1.7;resize:none;outline:none;font-family:inherit;transition:border-color 0.2s;min-height:130px;}
+textarea:focus{border-color:#1D9E75;}
+textarea::placeholder{color:rgba(255,255,255,0.18);}
+.char-count{position:absolute;bottom:10px;right:14px;font-size:10px;color:rgba(255,255,255,0.2);}
+.score-btn{width:100%;background:#1D9E75;color:#fff;border:none;border-radius:10px;padding:15px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;transition:background 0.2s,transform 0.1s;letter-spacing:0.04em;}
+.score-btn:hover{background:#0F6E56;transform:scale(1.02);}
+.score-btn:active{transform:scale(0.97);}
+.result-wrap{width:100%;max-width:560px;display:none;}
+.result-wrap.show{display:block;}
+.total-card{background:#13131f;border-radius:16px;padding:1.75rem;margin-bottom:12px;text-align:center;position:relative;overflow:hidden;}
+.total-grade{font-size:32px;margin-bottom:6px;}
+.total-grade-name{font-size:16px;font-weight:500;color:#fff;margin-bottom:4px;}
+.total-score-row{display:flex;align-items:baseline;justify-content:center;gap:6px;margin-bottom:12px;}
+.total-score-num{font-size:60px;font-weight:500;line-height:1;}
+.total-score-max{font-size:18px;color:rgba(255,255,255,0.3);align-self:flex-end;padding-bottom:8px;}
+.score-bar-wrap{width:100%;max-width:220px;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;margin:0 auto 16px;}
+.score-bar-fill{height:6px;border-radius:3px;transition:width 1s ease;width:0;}
+.total-comment{font-size:13px;line-height:1.7;max-width:400px;margin:0 auto;padding:12px 16px;border-radius:8px;}
+.items-card{background:#13131f;border:1px solid #2a2a4a;border-radius:16px;padding:1.5rem;margin-bottom:12px;}
+.items-title{font-size:11px;font-weight:500;color:rgba(255,255,255,0.35);letter-spacing:0.12em;margin-bottom:16px;}
+.item-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #1a1a2e;}
+.item-row:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.item-check{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:12px;font-weight:500;}
+.item-check.pass{background:rgba(29,158,117,0.2);color:#1D9E75;}
+.item-check.fail{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.2);}
+.item-body{flex:1;}
+.item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.item-name{font-size:13px;font-weight:500;color:#fff;}
+.item-pts{font-size:12px;font-weight:500;}
+.item-pts.earned{color:#1D9E75;}
+.item-pts.zero{color:rgba(255,255,255,0.2);}
+.item-bar-wrap{width:100%;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;margin-bottom:6px;}
+.item-bar-fill{height:4px;border-radius:2px;background:#1D9E75;transition:width 0.8s ease;}
+.item-comment{font-size:12px;line-height:1.6;}
+.item-comment.good{color:#9FE1CB;}
+.item-comment.tip{color:rgba(255,255,255,0.35);}
+.btn-stack{display:flex;flex-direction:column;gap:8px;}
+.retry-btn{width:100%;background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.25);border-radius:8px;padding:12px;color:#1D9E75;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:background 0.2s;}
+.retry-btn:hover{background:rgba(29,158,117,0.2);}
+.submit-btn{width:100%;background:#534AB7;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;text-decoration:none;display:block;text-align:center;transition:background 0.2s;}
+.submit-btn:hover{background:#7F77DD;}
+</style>
+</head>
+<body>
+
+<div class="sys-tag">2주차 — 철저하게 준비된 시도</div>
+<div class="main-title">프롬프트 점수 측정기</div>
+<div class="main-sub">내 프롬프트가 얼마나 잘 쓰여졌는지 확인해보세요<br>100점 만점으로 채점해드립니다</div>
+
+<div class="input-card">
+  <div class="q-label">나의 AI 캐릭터 프롬프트를 입력하세요</div>
+  <div class="q-text">철저하게 준비할수록 높은 점수!</div>
+  <div class="q-sub">외형, 능력, 세계관, 성격까지 구체적으로 쓸수록 유리해요.<br>크래프톤 핵심가치 키워드가 들어가면 기본 20점!</div>
+  <div class="examples">
+    <div class="ex-chip" onclick="fillEx(this)">담대하게 미래를 개척하는 사이버펑크 전사</div>
+    <div class="ex-chip" onclick="fillEx(this)">팬들의 마음을 읽는 공감형 마법사 AI</div>
+    <div class="ex-chip" onclick="fillEx(this)">글로벌 감각을 가진 외교관 로봇</div>
+  </div>
+  <div class="textarea-wrap">
+    <textarea id="prompt-input" placeholder="여기에 프롬프트를 써주세요..." maxlength="600" oninput="onInput()"></textarea>
+    <span class="char-count"><span id="char-cnt">0</span>/600</span>
+  </div>
+  <button class="score-btn" onclick="scorePrompt()">점수 측정하기 →</button>
+</div>
+
+<div class="result-wrap" id="result-wrap">
+  <div class="total-card" id="total-card">
+    <div class="total-grade" id="total-grade"></div>
+    <div class="total-grade-name" id="total-grade-name"></div>
+    <div class="total-score-row">
+      <div class="total-score-num" id="total-score-num"></div>
+      <div class="total-score-max">/ 100점</div>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-bar-fill" id="score-bar"></div>
+    </div>
+    <div class="total-comment" id="total-comment"></div>
+  </div>
+
+  <div class="items-card">
+    <div class="items-title">항목별 채점 결과</div>
+    <div id="items-list"></div>
+  </div>
+
+  <div class="btn-stack">
+    <button class="retry-btn" onclick="retry()">다시 측정하기</button>
+    <a class="submit-btn" href="https://tally.so/r/xXy2VJ" target="_blank">제출 바로가기 →</a>
+  </div>
+</div>
+
+<script>
+var CORE_VALUES = ["담대","도전","철저","준비","상상력","상상","기술","팬","팬심","글로벌","세계","핵심가치","크래프톤","krafton","가치"];
+var APPEARANCE = ["얼굴","눈","머리","피부","키","몸","체형","의상","옷","색","색상","날개","갑옷","문양","외형","생김새","헤어","입술","코","귀","손","발","팔","다리","체구","실루엣","흉터","문신","안경","투구","망토","코트","장갑","부츠","뿔","꼬리","귀"];
+var ABILITY = ["마법","전사","분석","치유","해킹","속도","변신","예언","창조","전투","방어","공격","능력","스킬","파워","힘","지능","민첩","마나","에너지","광선","소환","조종","텔레파시","순간이동","비행","잠입","저격","프로그래밍","코딩","디자인","예술","음악","요리","수학","과학"];
+var WORLD = ["미래","판타지","사이버펑크","우주","왕국","지구","행성","차원","세계관","배경","도시","디지털","가상","현실","과거","중세","근미래","2100","2147","2050","2200","포스트아포칼립스","증강현실","메타버스","우주선","요새","던전","숲","바다","사막","하늘","지하","신전","학교","연구소"];
+var PERSONALITY = ["용감한","냉철한","따뜻한","신비로운","낙천적","차가운","강인한","섬세한","호기심","유머","진지한","충성스러운","반항적","카리스마","온화한","날카로운","순수한","복잡한","외로운","열정적","냉정한","친절한","엄격한","자유로운","독립적","사교적","내성적","대담한","조심스러운","지혜로운"];
+var DETAIL_UNITS = ["cm","kg","m","퍼센트","%","년도","년 ","살 ","세 ","층","km","초","분","시간","번","개","명","마리"];
+
+function onInput(){
+  document.getElementById('char-cnt').textContent = document.getElementById('prompt-input').value.length;
+}
+
+function fillEx(el){
+  document.getElementById('prompt-input').value = el.textContent.trim();
+  onInput();
+}
+
+function countMatches(text, arr){
+  var t = text.toLowerCase();
+  return arr.filter(function(w){ return t.includes(w.toLowerCase()); }).length;
+}
+
+function scorePrompt(){
+  var text = document.getElementById('prompt-input').value.trim();
+  if(!text){ document.getElementById('prompt-input').focus(); return; }
+  var len = text.length;
+  var results = [];
+
+  var cvMatches = countMatches(text, CORE_VALUES);
+  var cvScore = cvMatches > 0 ? 20 : 0;
+  results.push({
+    name:"핵심가치 키워드", max:20, score:cvScore,
+    good: cvScore > 0 ? "크래프톤의 가치가 프롬프트에 녹아있어요! 훌륭해요 👏" : null,
+    tip: cvScore === 0 ? "담대한, 철저한, 상상력, 팬, 글로벌 등 핵심가치 키워드를 한 개라도 넣어보세요" : null
+  });
+
+  var apCnt = countMatches(text, APPEARANCE);
+  var apScore = apCnt === 0 ? 0 : apCnt === 1 ? 6 : apCnt === 2 ? 12 : 20;
+  results.push({
+    name:"외형 묘사", max:20, score:apScore,
+    good: apScore >= 20 ? "캐릭터가 눈앞에 그려지는 디테일한 묘사예요! 🎨" : apScore >= 12 ? "외형 묘사가 잘 돼 있어요. 조금만 더 추가해보세요!" : null,
+    tip: apScore < 12 ? "얼굴, 눈 색, 의상, 체형 등 외형을 더 구체적으로 묘사해보세요" : null
+  });
+
+  var abCnt = countMatches(text, ABILITY);
+  var abScore = abCnt === 0 ? 0 : abCnt === 1 ? 8 : 15;
+  results.push({
+    name:"능력 / 직업", max:15, score:abScore,
+    good: abScore >= 15 ? "이 캐릭터의 능력이 명확하게 전달돼요! ⚡" : abScore > 0 ? "능력 묘사가 있어요. 더 추가하면 만점!" : null,
+    tip: abScore === 0 ? "마법, 전투, 분석, 치유 등 캐릭터의 능력이나 직업을 써보세요" : null
+  });
+
+  var wdCnt = countMatches(text, WORLD);
+  var wdScore = wdCnt === 0 ? 0 : wdCnt === 1 ? 8 : 15;
+  results.push({
+    name:"세계관 / 배경", max:15, score:wdScore,
+    good: wdScore >= 15 ? "풍부한 세계관이 캐릭터에 깊이를 더해줘요! 🌍" : wdScore > 0 ? "배경 설정이 있네요. 더 구체적으로 써보세요!" : null,
+    tip: wdScore === 0 ? "미래 도시, 판타지 왕국, 사이버펑크 세계 등 배경을 설정해보세요" : null
+  });
+
+  var psCnt = countMatches(text, PERSONALITY);
+  var psScore = psCnt === 0 ? 0 : psCnt === 1 ? 5 : 10;
+  results.push({
+    name:"성격 / 감정", max:10, score:psScore,
+    good: psScore >= 10 ? "캐릭터의 성격이 생생하게 느껴져요! 💫" : psScore > 0 ? "성격 묘사가 있어요!" : null,
+    tip: psScore === 0 ? "용감한, 냉철한, 따뜻한 등 성격 키워드를 추가해보세요" : null
+  });
+
+  var lenScore = len < 50 ? 0 : len < 100 ? 5 : len < 200 ? 10 : 15;
+  var lenTip = len < 50 ? "프롬프트가 너무 짧아요. 더 자세히 써볼까요?" : len < 100 ? "조금 더 길게 써보면 점수가 올라요!" : len < 200 ? "적당한 길이예요. 조금만 더!" : null;
+  var lenGood = len >= 200 ? "충분히 길고 상세한 프롬프트예요! 📝" : len >= 100 ? "적당한 길이예요. 조금만 더!" : null;
+  results.push({
+    name:"글자수 (" + len + "자)", max:15, score:lenScore,
+    good: lenGood,
+    tip: lenTip
+  });
+
+  var hasUnit = DETAIL_UNITS.some(function(u){ return text.includes(u); });
+  var hasQuote = text.includes('"') || text.includes("'") || text.includes('\u201c') || text.includes('\u201d');
+  var dtScore = (hasUnit ? 3 : 0) + (hasQuote ? 2 : 0);
+  results.push({
+    name:"디테일 보너스", max:5, score:dtScore,
+    good: dtScore >= 4 ? "숫자와 대사까지! 완벽한 디테일이에요 ✨" : dtScore > 0 ? "디테일 요소가 있네요!" : null,
+    tip: dtScore === 0 ? "키(170cm), 연도(2147년) 등 수치나 시그니처 대사 \" \" 를 넣어보세요" : null
+  });
+
+  var total = results.reduce(function(s,r){ return s + r.score; }, 0);
+  showResult(total, results);
+}
+
+function showResult(total, results){
+  var grade, gradeName, gradeColor, barColor, comment, bgColor;
+  if(total >= 90){
+    grade = "👑"; gradeName = "전설급 프롬프터";
+    gradeColor = "#EF9F27"; barColor = "#EF9F27"; bgColor = "rgba(239,159,39,0.08)";
+    comment = "완벽에 가까운 프롬프트예요! 이 정도면 AI가 원하는 캐릭터를 정확히 만들어낼 거예요. 공모전 우승 후보!";
+  } else if(total >= 70){
+    grade = "⚔️"; gradeName = "숙련 프롬프터";
+    gradeColor = "#534AB7"; barColor = "#534AB7"; bgColor = "rgba(83,74,183,0.08)";
+    comment = "아주 잘 쓴 프롬프트예요! 몇 가지만 더 채우면 전설급 도달할 수 있어요. 거의 다 왔어요!";
+  } else if(total >= 50){
+    grade = "🌱"; gradeName = "성장 중인 프롬프터";
+    gradeColor = "#1D9E75"; barColor = "#1D9E75"; bgColor = "rgba(29,158,117,0.08)";
+    comment = "좋은 시작이에요! 아래 피드백을 참고해서 보완하면 점수가 쑥 올라갈 거예요.";
+  } else {
+    grade = "🔰"; gradeName = "수련 중";
+    gradeColor = "#888780"; barColor = "#888780"; bgColor = "rgba(136,135,128,0.08)";
+    comment = "아직 수련이 필요해요. 외형, 능력, 세계관을 추가해보세요. 할 수 있어요!";
+  }
+
+  var card = document.getElementById('total-card');
+  card.style.border = "1px solid " + gradeColor + "55";
+  document.getElementById('total-grade').textContent = grade;
+  document.getElementById('total-grade-name').textContent = gradeName;
+  document.getElementById('total-grade-name').style.color = gradeColor;
+  document.getElementById('total-score-num').textContent = total;
+  document.getElementById('total-score-num').style.color = gradeColor;
+  var bar = document.getElementById('score-bar');
+  bar.style.width = "0%";
+  bar.style.background = barColor;
+  setTimeout(function(){ bar.style.width = total + "%"; }, 100);
+  var tc = document.getElementById('total-comment');
+  tc.textContent = comment;
+  tc.style.background = bgColor;
+  tc.style.color = gradeColor;
+
+  var html = "";
+  results.forEach(function(r){
+    var pass = r.score > 0;
+    var pct = Math.round((r.score / r.max) * 100);
+    html += '<div class="item-row">';
+    html += '<div class="item-check ' + (pass ? "pass" : "fail") + '">' + (pass ? "✓" : "–") + '</div>';
+    html += '<div class="item-body">';
+    html += '<div class="item-top"><span class="item-name">' + r.name + '</span>';
+    html += '<span class="item-pts ' + (pass ? "earned" : "zero") + '">';
+    html += (pass ? "+" : "") + r.score + ' / ' + r.max + '점</span></div>';
+    html += '<div class="item-bar-wrap"><div class="item-bar-fill" style="width:' + pct + '%;background:' + (pass ? "#1D9E75" : "rgba(255,255,255,0.1)") + '"></div></div>';
+    if(pass && r.good) html += '<div class="item-comment good">' + r.good + '</div>';
+    if(r.tip) html += '<div class="item-comment tip">💡 ' + r.tip + '</div>';
+    html += '</div></div>';
+  });
+  document.getElementById('items-list').innerHTML = html;
+
+  document.getElementById('result-wrap').classList.add('show');
+  setTimeout(function(){
+    document.getElementById('result-wrap').scrollIntoView({behavior:'smooth', block:'start'});
+  }, 100);
+}
+
+function retry(){
+  document.getElementById('result-wrap').classList.remove('show');
+  document.getElementById('prompt-input').value = '';
+  document.getElementById('char-cnt').textContent = '0';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+</body>
+</html>
